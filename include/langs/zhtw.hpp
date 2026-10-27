@@ -177,7 +177,10 @@ namespace ZHTW {
 		"強制使用英文介面",
 		"底座模式螢幕同步",
 		"僅限手持模式",
-		"HOME 選單使用 60 Hz"
+		"HOME 選單使用 60 Hz",
+		"無法儲存螢幕設定。",
+		"無法套用更新率。",
+		"螢幕已變更，未儲存更新率。"
 	};
 
 	const std::array teslaStrings = {

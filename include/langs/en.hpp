@@ -184,7 +184,10 @@ namespace ENG {
 		"Force English language",
 		"Docked Display Sync",
 		"Handheld only",
-		"60 Hz in HOME Menu"
+		"60 Hz in HOME Menu",
+		"Couldn't save display settings.",
+		"Couldn't apply refresh rate.",
+		"Display changed. Rate not saved."
 	};
 
 	const std::array teslaStrings = {

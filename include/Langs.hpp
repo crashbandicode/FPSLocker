@@ -185,7 +185,10 @@ namespace Lang {
         Id_DockedDisplaySync,
         Id_HandheldOnly,
         Id_60HzInHOMEMenu,
-        
+        Id_CouldntSaveDisplaySettings,
+        Id_CouldntApplyRefreshRate,
+        Id_DisplayChangedRateNotSaved,
+
         Id_total_number
     };
 }

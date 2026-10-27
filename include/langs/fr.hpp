@@ -188,7 +188,10 @@ namespace FRA {
 		"Forcer langue Anglais",
 		"Sync Écran Docké",
 		"Seulement en mode portable",
-		"HOME Menu à 60Hz"
+		"HOME Menu à 60Hz",
+		"Réglages d'affichage non enregistrés.",
+		"Fréquence non appliquée.",
+		"Écran changé. Fréquence non enregistrée."
 	};
 
 	const std::array teslaStrings = {

@@ -1,5 +1,9 @@
 # FPSLocker
 
+Fork of [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) 3.5.0. The original license is unchanged: GNU GPL v2 (`LICENSE`). Provenance: [docs/FORK.md](docs/FORK.md).
+
+This `monitor-preferences` branch is paired with SaltyNX fork `2.1.3-monitor.1`, upstream commit `cf2adb7b8facdc34e3cbf9ec6ff7686f67575048` (release 2.1.3 plus the NVN stack reduction).
+
 An overlay that, with SaltyNX, allows you to set custom display refresh rate and FPS in Nintendo Switch retail games.
 
 > [!NOTE]
@@ -101,7 +105,7 @@ If Display Sync is turned off, the custom refresh rate is not restored after sle
 
 Changing the refresh rate affects the animations' speed of OS and Tesla overlays, making them more sluggish at lower refresh rates.
 
-I am not taking any responsibility for damages occurring from changing the refresh rate. Each time you go to `Display settings`, you will be welcomed by a prompt with a warning that you - the user - are taking full responsibility. You must choose `Accept` to go further.
+I am not taking any responsibility for damages occurring from changing the refresh rate. The first time you open `Display settings` on the internal display, and the first time you open it for each external monitor, a warning says that you are taking full responsibility. `Accept` stores that choice for the current display only. `Decline` and Back do not. A different monitor, or the handheld display, asks again.
 
 # Information about changing refresh rates in docked mode
 
@@ -112,6 +116,14 @@ Many displays are locked to max 75Hz at 1080p because, from what I understand, s
 OLED is a curious case because Nintendo applied software PCIE lane bandwidth cap forcing it to be always in HBR mode. sys-dock sysmodule allows overriding those limitations.
 
 From tests, HOS applets can get unstable at 100 Hz and higher. That means, e.g., if a currently running game wants to pop the user selection applet, this may result in the game's crash. Some games can get unstable on their own. As an example, "Batman: The Enemy Within", when being closed above a certain refresh rate, will crash.
+
+Choosing a refresh rate in docked `Change refresh rate` stores it for that monitor and the current 1080p or 720p mode after the display actually switches to it. The two rates are `preferredRefreshRate` and `preferredRefreshRate720p` in the existing `ExtDisplays/<EDID CRC32>.ini` file, under `[Common]`. Saving an allowlist or the additional docked options leaves those rates, the other resolution's allowlist, the warning acknowledgement, and any other keys in the file alone. That selection does not toggle Display Sync.
+
+With the matching SaltyNX fork and Docked Display Sync off, a valid saved rate is restored after a stable reconnect, resolution change or resume. Automatic Display Sync takes priority when enabled. A new monitor, missing preference or a rate no longer allowed by the display/link retains the default 60 Hz behavior. This does not change a game's FPS target.
+
+Warning acceptance is stored under `[Common]` as `displayDisclaimerAcknowledged=True` in that monitor's INI; the internal display uses `SaltySD/plugins/FPSLocker/display.ini`. An unavailable display identity does not reuse handheld acceptance. Failed preference/acknowledgment saves remain visible in the menu. INIs are limited to 16 KiB, matching SaltyNX; unreadable or oversized originals are preserved. Writes keep comments and unknown settings, place `[Common]` first, and retain the previous file if replacement fails.
+
+Host validation: `make -C tests test` (C++23; Linux file-I/O fault tests). The matched forks still require console checks for reconnect/resume behavior; host tests are not hardware acceptance.
 
 # Thanks
 Thanks to:
