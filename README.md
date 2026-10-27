@@ -4,6 +4,8 @@ Fork of [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) 3.5.0. T
 
 This `monitor-preferences` branch is paired with SaltyNX fork `2.1.3-monitor.1`, upstream commit `cf2adb7b8facdc34e3cbf9ec6ff7686f67575048` (release 2.1.3 plus the NVN stack reduction).
 
+**Hardware tested (2026-10-27):** the operator tested the installed **FPSLocker 3.5.0-monitor.1 / SaltyNX 2.1.3-monitor.1** pair and reported that it works great on the Erista Switch 1 / Smash Ultimate 13.0.5 setup using a 120-Hz display and 60-FPS game target. See [the test record](docs/FORK.md).
+
 An overlay that, with SaltyNX, allows you to set custom display refresh rate and FPS in Nintendo Switch retail games.
 
 > [!NOTE]
@@ -123,7 +125,9 @@ With the matching SaltyNX fork and Docked Display Sync off, a valid saved rate i
 
 Warning acceptance is stored under `[Common]` as `displayDisclaimerAcknowledged=True` in that monitor's INI; the internal display uses `SaltySD/plugins/FPSLocker/display.ini`. An unavailable display identity does not reuse handheld acceptance. Failed preference/acknowledgment saves remain visible in the menu. INIs are limited to 16 KiB, matching SaltyNX; unreadable or oversized originals are preserved. Writes keep comments and unknown settings, place `[Common]` first, and retain the previous file if replacement fails.
 
-Host validation: `make -C tests test` (C++23; Linux file-I/O fault tests). The matched forks still require console checks for reconnect/resume behavior; host tests are not hardware acceptance.
+The monitor is remembered by its EDID: a successful manual selection updates that monitor's profile, and reconnecting the same monitor loads it again. Rates are saved separately for 1080p and 720p; explicit Accept stores that monitor's warning acknowledgment.
+
+Host validation: `make -C tests test` (C++23; Linux file-I/O fault tests). Strict-warning ASan/UBSan tests and the Switch build passed, followed by successful operator testing of the matched pair on 2026-10-27. Results for every alternate monitor/resolution/link scenario were not individually itemized.
 
 # Thanks
 Thanks to:
