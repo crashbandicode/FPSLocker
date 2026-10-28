@@ -1,222 +1,102 @@
 # FPSLocker
 
-Fork of [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) 3.5.0. The original license is unchanged: GNU GPL v2 (`LICENSE`). Provenance: [docs/FORK.md](docs/FORK.md).
+Set game FPS and display refresh rates on Nintendo Switch. This fork also remembers each monitor's refresh-rate preferences and display-warning acceptance.
 
-This `monitor-preferences` branch is paired with SaltyNX fork `2.1.3-monitor.1`, upstream commit `cf2adb7b8facdc34e3cbf9ec6ff7686f67575048` (release 2.1.3 plus the NVN stack reduction).
+**Matched releases:** [FPSLocker 3.5.0-monitor.1](https://git.syntaxbyexample.com/intpa/FPSLocker/releases/tag/3.5.0-monitor.1) + [SaltyNX 2.1.3-monitor.1](https://git.syntaxbyexample.com/intpa/SaltyNX/releases/tag/2.1.3-monitor.1).
 
-**Hardware tested (2026-10-27):** the operator tested the installed **FPSLocker 3.5.0-monitor.1 / SaltyNX 2.1.3-monitor.1** pair and reported that it works great on the Erista Switch 1 / Smash Ultimate 13.0.5 setup using a 120-Hz display and 60-FPS game target. See [the test record](docs/FORK.md).
+**Hardware tested:** the operator reported successful use on an Erista Switch 1 / Smash Ultimate 13.0.5 setup at 120 Hz / 60 FPS on 2026-10-27. [Test record and fork provenance](docs/FORK.md).
 
-An overlay that, with SaltyNX, allows you to set custom display refresh rate and FPS in Nintendo Switch retail games.
+## Setup
 
-> [!NOTE]
-> The tool utilizes detection of the graphics API to manipulate FPS, and in special cases, it requires using patches made specifically for each game version to achieve more than 30 FPS. Overlay has a built-in option to download configs used to make patches. Repository storing those configs can be found [HERE](https://github.com/masagrator/FPSLocker-Warehouse)<br>
-Max supported YAML size is 32kB, though it can be expanded in the next updates.
+| Component | Requirement |
+| --- | --- |
+| Custom firmware | [Atmosphère](https://github.com/Atmosphere-NX/Atmosphere/releases) |
+| Game/display hooks | Matching SaltyNX release above |
+| Overlay menu | [Ultrahand](https://github.com/ppkantorski/Ultrahand-Overlay/releases) / Tesla environment |
+| Performance | Adequate clocks for the chosen FPS; an overclocking toolset may be needed, especially docked |
+| Docked display support | [sys-dock](https://git.syntaxbyexample.com/intpa/sys-dock) for OLED 120-Hz support and horizontal-line fixes; follow its configuration guide |
+
+Copy `FPSLocker.ovl` to `sdmc:/switch/.overlays/`. Install the matching SaltyNX runtime and reboot after updating it. Keep existing settings, exclusions and plugins. For a fresh environment, see the [upstream setup guide](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b).
 
 > [!WARNING]
-> IT IS NOT ADVISED TO USE 60 FPS CHEATS/MODS SIMULTANEOUSLY WITH THIS TOOL, EITHER YOU NEED A CHEAT OR FPSLOCKER, YOU DON'T NEED BOTH AT ONCE! THIS CAN CREATE COMPATIBILITY ISSUES LEADING TO CRASHES!
+> Combining FPSLocker with 60-FPS cheats/mods can cause compatibility issues and crashes. Use one FPS-control method.
 
-# Requirements
-- [Atmosphere CFW](https://github.com/Atmosphere-NX/Atmosphere/releases)
-- [My fork of SaltyNX, version 2.1.0+](https://github.com/masagrator/SaltyNX/releases)
-- Tesla environment: [Ultrahand](https://github.com/ppkantorski/Ultrahand-Overlay/releases)
-- Overclocking toolset (And don't expect to run games in docked mode at locked 60 FPS without ridiculously beefy clocks, no - 1963/998/2133 clocks are not beefy enough in most cases)
-- [sys-dock](https://github.com/masagrator/sys-dock/releases) and read its [README](https://github.com/masagrator/sys-dock/blob/main/README.md) to unlock 120 Hz in OLEDs while docked + fix an issue with glitchy horizontal lines if you get them on any Switch while docked.
+## Usage
 
-How to set up everything: [HERE](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
+### Change game FPS
 
-# Usage
+1. Start a supported game and open FPSLocker. Confirm **NX-FPS plugin is running**.
+2. Choose an FPS target. If the game needs a patch, connect to the internet and use **Advanced settings**:
 
-Supported languages: English, German, French, Russian, Brazilian Portuguese, Chinese Simplified, Chinese Traditional.
+   ```text
+   Check/download config
+             ↓
+   Convert config to patch file
+             ↓
+   Restart game → Set FPS target
+   ```
 
-Overlay runs in two modes:<br>
-> When the game is running
+   Configs must match the game version and be available in [FPSLocker Warehouse](https://github.com/masagrator/FPSLocker-Warehouse).
+3. If NVN reports **Set/Active/Available buffers: 2/2/3**, select **Set Buffering → Triple (force)**. Follow any restart prompt.
 
-If the game is supported by SaltyNX and you installed everything correctly, you will see a menu where the first line states `NX-FPS plugin is running`.
+| Control | Handheld | Docked |
+| --- | --- | --- |
+| FPS target | 15–60 FPS, in steps of 5 | 15–60 FPS, plus enabled monitor rates above 60, up to 120 |
+| Manual refresh rate | 40–60 Hz; OLED: 45–60 Hz | Allowed rates for the current display/link, up to 120 Hz |
+| Display Sync | While a game runs, chooses a matching refresh or supported multiple. Hides manual Hz controls while enabled. | Same behavior, controlled separately |
 
-**tl;dr**<br>
-The best approach if you want to run 30 FPS games at higher FPS: 
-1. Run game, connect your Switch to the internet, in FPSLocker go to `Advanced Settings`, press `Check/download config file`. If your game and version are compatible with the FPSLocker Warehouse repository, the menu will be refreshed with the option `Convert config to patch` appearing. Press on it, restart the game, and now change the FPS target in FPSLocker.
-2. Go to Advanced Settings, if you see "Set/Active/Available buffers: 2/2/3", press on `Set buffering`, choose `Triple (force)`.
+Higher targets still depend on game performance and engine limits. [Full controls, patch errors and buffering guidance](docs/USAGE.md).
 
-**Explanation of each option and information**:
-- `Interval Mode` - It's used by NVN and EGL API to set vsync. Value 2 means that every frame shows at least 2x longer than by default, so at 60 Hz display you get 30 FPS max. Accepted range is 1-4. Unset value reported as 0 is treated the same way as 1.
-- `Custom FPS Target` - It's used to lock the game to a certain FPS. If the game is using engine proprietary FPS locks, it may not be able to unlock more than 30 FPS without additional patches.
-- `FPS` - It shows how many frames have passed in the last second for the currently running game. This is to confirm that the lock is working as expected.
-- `Patch file doesn't exist.` - It shows up when overlay is 100% sure that for FPSLocker to properly work in this specific game it needs FPSLocker patch, but you don't have one. Read `tl;dr` how to get config and convert it to patch (though config may not exist for your game generally or for specific game's version you are using).
-- `Increase/Decrease FPS target` - Shows up only in handheld mode. Change FPS Target by 5. Minimum is 15 FPS, max is 60 FPS.
-- `Change FPS target` - Shows up only in docked mode. Shows up table with different FPS values, from 15 to 60 by default with possibility of expanding to 120 FPS.
-- `Disable custom FPS target` - Removes FPS Target. Since we cannot predict what interval mode is expected at this point, it is in user's discretion to manipulate FPS to bring back correct interval before disabling FPS target.
-- `Advanced settings` - submenu which consists of:
-  - If game is using NVN
-    - `Window Sync Wait` - this is dangerous setting that disabled can crash game, but in some can bring benefit of disabling double buffer vsync at the cost of small graphical glitches (check list of games compatible with this solution at the bottom of README). Use it with caution. It won't show if game is not using double buffer. 
-    - `Set Buffering` - this option will show that will allow you to force game to run with other amount of buffers. Lowering buffer is recommended only for games that have near perfect performance at 30 or 60 FPS, but suffer from bad framepacing or big input lag. If you will force double buffer in games with uneven performance, FPS drops will be very severe. In some games it can be applied only at boot of game, so after changing buffering you may be forced to restart game (such info will pop up inside menu if it's needed). Double buffer games that report 0/2/2 forced to run at triple buffer may not boot or can crash in the later phase of game. [Look at the list.](#📷)<br> Explanation of `Set/Active/Available Buffers`: 
-      - Set - how many buffers were set by using `nvnWindowSetNumActiveTextures`. If game is not using it, it will be 0. It can be used by games to set lower buffer value than reserved space allows. If this is detected to be used and lower than Available Buffers, you can use "(force)" variant next to default option. Without `(force)` it will reset to default settings.
-      - Active - How many buffers are actually used by game. 
-      - Available - How many buffers is actually provided to NVN. We can use this information to force games to utilize all buffers when they are not doing it.
-  - If game is using Vulkan
-    - `Set Buffering` - switch between double buffer and triple buffer. Lowering buffer is recommended only for games that have near perfect performance at 30 or 60 FPS, but suffer from bad framepacing or big input lag. If you will force double buffer in games with uneven performance, FPS drops will be very severe. It can be applied only at boot of game, so after changing buffering you must restart game.
-  - `Convert config to patch file` - if proper config file exists for this game and version, you will get an option to convert it to patch file that will be loaded when you will run this game next time. Patch is saved to `SaltySD/plugins/FPSLocker/patches/*titleid_uppercase*/*buildid_uppercase*.bin`
-  - `Delete patch file` - if proper config file exists for this game and version, you will get an option to delete patch file so it won't be loaded when you will run this game next time.
-  - `Check/download config file` - Checks in Warehouse repository if config for this game and version exists. If exists, it is downloaded and also checked if it's the same as the one on sdcard. If it's not, overlay will remove existing patch and config file, and user must manually convert new config to patch file. 0x312 error means we got unexpected file from github. Any other error code means that something is happening with your connection or github server.
-  - `Halt unfocused game` - Some games are not suspended when your Switch is in home menu. Enabling this option forces kernel to suspend game asap if game is out of focus.
-- `Display settings` - submenu related to display refresh rate. Consists of:
-  - `Increase refresh rate` - Shows up only in handheld mode. Change display refresh rate up to 60 Hz.
-  - `Decrease refresh rate` - Shows up only in handheld mode. Change display refresh rate down to 40 Hz (for OLED to 45 Hz). 
-  - `Change refresh rate` - Shows up only in docked mode. Choose display refresh rate from list.
-  - `Handheld Display Sync`/`Docked Display Sync` - When turned on, all three options above are not available, display refresh rate is changed only when game is running, and matches refresh rate with FPS Target.
-  - `60 HZ in HOME Menu` - if Handheld Display Sync is turned on, whenever you go to HOME Menu while game is running SaltyNX will always make sure to run it at 60 Hz in handheld.
-  - `Retro Remake Mode` - this option shows only for people that use Lite with screen `InnoLux 2J055IA-27A (Rev B1)` or `Retro Remake SUPER5` (first revision only). That is because Retro Remake displays require special approach to change refresh rate, and first version of SUPER5 is spoofing ID of already existing display, which makes it impossible to detect which one is in use, so user must manually enable it if they are using SUPER5 display. All other Retro Remake displays are detected automatically.
-  - `Docked Settings` - submenu related to display refresh rate of external displays. Not accessible for Lite units. Consists of:
-      - `myDP link rate` - It will report `HBR` or `HBR2` mode. HBR mode doesn't allow going higher than 75 Hz at 1080p for non-OLED units, for OLED units it depends on how much DP lanes your dock supports (all original docks have 2 active DP lanes which means max 75 Hz at 1080p). In case of 75 Hz being max at 1080p, 60 Hz is the real max if you want audio to work. More at the bottom of readme.
-      - `Config ID` - What is the name of config file used to store settings for your currently connected display. You can find file in `SaltySD/plugins/FPSLocker/ExtDisplays` folder.
-      - `Allowed refresh rates` - you can check and edit manually which refresh rates are enabled for currently connected external display. It consists of 40, 45, 50 and 55 Hz. By default 50 is turned on, everything else is turned off.
-      - `Display underclock wizard` - it goes automatically through refresh rates from 40 to 55, user is asked to press required button to confirm it's working, if not pressed for 15 seconds it goes to next refresh rate. After checking all refresh rates you are moved to `Allowed refresh rates` menu to check results.
-      - `Display overclock wizard` - it shows only if external display reported max refresh rate is equal or above 70 Hz. Goes automatically through refresh rates from 70 to max your display supports with cap being 120 Hz, user is asked to press required button to confirm it's working, if not pressed for 10 seconds it goes to next refresh rate. After checking all refresh rates you are moved to `Allowed refresh rates` menu to check results.
-      - `Frameskip tester` - It allows to check if your display is showing currently used signal at native refresh rates. Many displays may support for example 50 Hz, but they are still displaying stuff at 60 Hz. Instructions how to use it are provided when this menu is selected. This menu is also available in handheld mode.
-      - `Additional settings` - submenu with options related to how FPSLocker/FPSLocker patches are working in docked mode. Currently you can choose from:
-          - `Allow patches to force 60 Hz` - some FPSLocker patches are forcing 60 Hz to fix framepacing issues with 30 FPS cutscenes. When such change happens, game is paused for 4 seconds before continuing. By default is turned on. Turning it off will apply only FPS lock without changing refresh rate and without delay.
-          - `Use lowest refresh rate for unmatched FPS targets` - For example for 60 Hz display 35 FPS target may not have available refresh rate matching it. By enabling this option you will get lowest enabled refresh rate in `Allowed refresh rates` menu. This option is disabled by default, which will result in setting 60 Hz in that case.
-          - `60 HZ in HOME Menu` - if Docked Display Sync is turned on, whenever you go to HOME Menu while game is running SaltyNX will always make sure to run it at 60 Hz for this particular display.
+### Remember a monitor's refresh rate
 
-> When game is not running
+1. Open **Display settings** and choose **Accept** when prompted.
+2. Turn **Docked Display Sync off** for an independent display rate, such as a 120-Hz display with a 60-FPS game target.
+3. Use **Change refresh rate** to select a supported rate. Configure **Docked Settings → Allowed refresh rates** if needed.
 
-You will have two submenus to choose from:
-- `Games list`<br>
-  It will list installed games (max 32), first option available is "All" submenu.<br>
-  Inside each one you will find two options:
-  - `Delete settings` - as name implies
-  - `Delete patches` - it will delete file created by "Convert config to patch file" option
-- `Display settings` - you can read about in previous section.
-- `Force English language` - If you prefer using English, this option will force overlay to use it. It is achieved by self-modifying executable, so after updating overlay to newer release it will be turned off.
+A successful selection saves the monitor's EDID profile, with separate 1080p and 720p values. On reconnect or resume, SaltyNX restores a valid saved rate once the link stabilizes. A new monitor starts with its own settings and warning; handheld acceptance is separate. Display Sync takes priority when enabled.
 
-# Information about changing refresh rates in handheld mode
+### Find an option
 
-I want to use this space to clarify a few things.<br>
+| Menu | Use it for |
+| --- | --- |
+| **Advanced settings** | Game patches, buffering, Window Sync Wait and halting an unfocused game |
+| **Display settings** | Refresh rate, Display Sync, handheld HOME-menu behavior and display tests |
+| **Docked Settings** | Monitor allowlists, under/overclock wizards, link information and docked policies |
+| **Games list** *(no game running)* | Delete saved settings or patches for one game or **All** |
+| **Force English language** *(no game running)* | Override the UI language; an overlay update resets this choice |
 
-Switch OLED displays require gamma color correction after changing the refresh rate. I am modifying OLED panel registers to adjust the gamma curve to be as close to the original experience as possible. But because those registers have very big steps, it's not possible to do it perfectly, so there are small discrepancies in colors (The worst case I found is 60% brightness at 45 Hz).<br>
+Languages: English, German, French, Russian, Brazilian Portuguese, Simplified Chinese and Traditional Chinese.
 
-From all reports I got, only one LCD screen was getting an issue with small flickering in the left bottom corner when running at 40 Hz (they were using `InnoLux P062CCA-AZ2`, but there were other users who also got this display and had no issues at 40 Hz - me included). No other issues were found.<br>
+## Reference
 
-Retro Remake displays require time to adjust themselves to a new signal, which is why refresh rate is applied with a delay on those displays. Too short a delay between attempts in changing refresh rate results in a black screen, which can be fixed by going to sleep mode/turning off/restarting the Switch. If you are affected, write your case in Issues so I can increase the delay in SaltyNX.
+- [Usage reference](docs/USAGE.md): every control, configuration paths and handheld/docked display notes.
+- [Game compatibility](docs/COMPATIBILITY.md): Window Sync Wait and double-to-triple-buffer results.
+- [Fork and hardware test record](docs/FORK.md): exact versions, source commits and test scope.
+- Host checks: `make -C tests test` (C++23; Linux file-I/O fault tests).
 
-I have decided to limit LCDs and Retro Remake displays down to 40 Hz since lower refresh rates are not only not beneficial to the user, but this choice also allows for avoiding certain risks with underclocking the display too much. For Switch OLED, that limit is 45 Hz because at 40 Hz it misbehaves.<br>
+## Credits and license
 
-LCD can be overclocked up to 70 Hz without immediately visible issues, but I have left max at 60 Hz for now. From 75 Hz, all users using original display panels were reporting issues with a glitchy image. OLED above 60 Hz is misbehaving.
+Fork of [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) 3.5.0, under the original [GNU GPL v2 license](LICENSE).
 
-If Display Sync is turned off, the custom refresh rate is not restored after sleep mode.
+<details>
+<summary>Upstream contributors and translations</summary>
 
-Changing the refresh rate affects the animations' speed of OS and Tesla overlays, making them more sluggish at lower refresh rates.
-
-I am not taking any responsibility for damages occurring from changing the refresh rate. The first time you open `Display settings` on the internal display, and the first time you open it for each external monitor, a warning says that you are taking full responsibility. `Accept` stores that choice for the current display only. `Decline` and Back do not. A different monitor, or the handheld display, asks again.
-
-# Information about changing refresh rates in docked mode
-
-Cap was set to 120 Hz as this is the max refresh rate supported by the OG dock and non-OLED switches, which makes it the most universal.
-
-Many displays are locked to max 75Hz at 1080p because, from what I understand, something hinders the connection between the Switch and dock, which ends in failed HBR2 training implemented in HOS, leaving the connection in HBR mode. HBR mode with 2 lanes is where the 180 MHz limit, which is slightly above what 1080p 75 Hz expects, comes from. The issue may come from the Switch and/or the dock itself. Being in HBR mode can also result in audio not being passed to the dock above 60 Hz at 1080p. Trying to manually do HBR2 training results in resetting the signal, which HOS tries to restore, so any attempt at manual training gets blocked.
-
-OLED is a curious case because Nintendo applied software PCIE lane bandwidth cap forcing it to be always in HBR mode. sys-dock sysmodule allows overriding those limitations.
-
-From tests, HOS applets can get unstable at 100 Hz and higher. That means, e.g., if a currently running game wants to pop the user selection applet, this may result in the game's crash. Some games can get unstable on their own. As an example, "Batman: The Enemy Within", when being closed above a certain refresh rate, will crash.
-
-Choosing a refresh rate in docked `Change refresh rate` stores it for that monitor and the current 1080p or 720p mode after the display actually switches to it. The two rates are `preferredRefreshRate` and `preferredRefreshRate720p` in the existing `ExtDisplays/<EDID CRC32>.ini` file, under `[Common]`. Saving an allowlist or the additional docked options leaves those rates, the other resolution's allowlist, the warning acknowledgement, and any other keys in the file alone. That selection does not toggle Display Sync.
-
-With the matching SaltyNX fork and Docked Display Sync off, a valid saved rate is restored after a stable reconnect, resolution change or resume. Automatic Display Sync takes priority when enabled. A new monitor, missing preference or a rate no longer allowed by the display/link retains the default 60 Hz behavior. This does not change a game's FPS target.
-
-Warning acceptance is stored under `[Common]` as `displayDisclaimerAcknowledged=True` in that monitor's INI; the internal display uses `SaltySD/plugins/FPSLocker/display.ini`. An unavailable display identity does not reuse handheld acceptance. Failed preference/acknowledgment saves remain visible in the menu. INIs are limited to 16 KiB, matching SaltyNX; unreadable or oversized originals are preserved. Writes keep comments and unknown settings, place `[Common]` first, and retain the previous file if replacement fails.
-
-The monitor is remembered by its EDID: a successful manual selection updates that monitor's profile, and reconnecting the same monitor loads it again. Rates are saved separately for 1080p and 720p; explicit Accept stores that monitor's warning acknowledgment.
-
-Host validation: `make -C tests test` (C++23; Linux file-I/O fault tests). Strict-warning ASan/UBSan tests and the Switch build passed, followed by successful operator testing of the matched pair on 2026-10-27. Results for every alternate monitor/resolution/link scenario were not individually itemized.
-
-# Thanks
 Thanks to:
 - ~WerWolv for creating Tesla environment
 - ~cucholix + ~Monked for tests
 - ~CTCaer for info about Samsung OLED panels
-- ~NaGa for tests on Retro Remake SUPER5 display and providing me with a Switch OLED unit
-  - and backers, including: Jorge Conceição, zany tofu, Lei Feng, brandon foster, AlM, Alex Haley, Stefano Bigio, Le Duc, Sylvixor x
-- Anonymous contributor who found how to unlock full refresh rate range for Switch OLED in dock.
- 
-Translation:
+- ~NaGa for tests on Retro Remake SUPER5 display and providing a Switch OLED unit
+  - and backers: Jorge Conceição, zany tofu, Lei Feng, brandon foster, AlM, Alex Haley, Stefano Bigio, Le Duc, Sylvixor x
+- Anonymous contributor who found how to unlock the full refresh-rate range for Switch OLED while docked
+
+Translations:
 - German: ~Lightos_
 - French: ~ganonlebucher
 - Russian: ~usagi, ~redraz
 - Brazilian Portuguese: ~Fl4sh
-- Chinese Simplified: ~Soneoy, ~Tone Darkwell
-- Chinese Traditional: [david082321](https://github.com/david082321)
+- Simplified Chinese: ~Soneoy, ~Tone Darkwell
+- Traditional Chinese: [david082321](https://github.com/david082321)
 
-# Sync Wait
-In those games, you can disable double buffer vsync by turning off Window Sync Wait in FPSLocker:
-- Batman - The Telltale Series (Warehouse patch enables triple buffer, so there is no need to use this option)
-- Pokémon Legends: Arceus
-- Pokémon Legends: Z-A
-- Pokémon Scarlet
-- Pokémon Violet
-- Sonic Frontier
-- The Legend of Zelda: Tears of the Kingdom  (Warehouse patch enables triple buffer, so there is no need to use this option)
-- Xenoblade Chronicles: Definitive Edition
-- Xenoblade Chronicles 2
-- Xenoblade Chronicles 3
-- Xenoblade Chronicles X
-
-# Double buffer to Triple buffer forcing
-Which games are not fully compatible with it:
-| Title | Tested game version | Reason |
-| ----- | ------------------- | ------ |
-| Death end re;Quest | 1.0.1 | Memory exhaustion in 4GB units |
-| Kirby and the Forgotten Land | 1.1.0 | Memory exhaustion in 4GB units, we need 26 MB, it gives only 16 MB |
-| Stubbs the Zombie in Rebel Without a Pulse | 1.0.3 | Memory exhaustion in 4GB units, changing exefs patch to match expected memory usage boots game with triple buffer, but any change between handheld and docked causes crash |
-
-<a id="📷"></a>
-<details>
-<summary>Tested games that passed initial tests (click on me to show list)</summary>
-
-| Title | Version | Note |
-| ----- | ------- | ---- |
-| Air Conflicts: Pacific Carriers | 1.0.2 |  |
-| Alan Wake | 1.0.1 |  |
-| Amnesia Collection | 1.3.0 |  |
-| Beyond Good & Evil | 1.0.1 |  |
-| Captain Tsubasa: Rise of New Champions | 1.4.6 |  |
-| Card-en-Ciel | 1.9.1 |  |
-| Cars 3 | 1.0.2 |  |
-| DC Super Hero Girls: Teen Power | 1.0.1 |  |
-| Death end re;Quest 2 | 1.0.0 |  |
-| Divinity: Original Sin 2 | 1.0.12 |  |
-| Don't Starve Together | 1.29.0 |  |
-| DRAGON BALL XENOVERSE 2 | 1.25.02 |  |
-| Dragon Star VARNIR | 1.0.1 |  |
-| Gal*Gun Returns | 1.0.4 |  |
-| Gal*Gun: Double Peace | 1.0.2 |  |
-| GO VACATION | 1.0.0 |  |
-| Kirby's Dream Buffet | 1.0.0a | FPSLocker patch already has triple buffer solution |
-| Luigi's Mansion 2 HD | 1.0.0 |  |
-| Mary Skelter Finale | 1.0.0 |  |
-| Majogami | 1.2.1 |  |
-| Portal Knights | 1.7.2 |  |
-| Rebel Galaxy: Outlaw | 1.0.1 |  |
-| Secret Game: Killer Queen | 1.0.1 |  |
-| SENRAN KAGURA Peach Ball | 1.0.2 US |  |
-| South Park: The Fractured But Whole | 1.0.5 |  |
-| STORY OF SEASONS: A Wonderful Life | 1.0.2 |  |
-| SWORD ART ONLINE Alicization Lycoris | 3.0.1 |  |
-| SWORD ART ONLINE: Hollow Realization | 1.0.2 |  |
-| The Thing: Remastered | 1.1.1 |  |
-| The Walking Dead | 1.0.1 |  |
-| Tokyo Mirage Sessions | 1.0.0 | FPSLocker patch already has triple buffer solution and is better |
-| Trials Rising | 1.0.13 |  |
-| TY the Tasmanian Tiger 2 | 1.0.1 |  |
-| Unravel Two | 1.0.1 |  |
-| Valkyria Chronicles | 1.0.1 |  |
-| X-Morph Defense | 1.0.1 |  |
-| Xenoblade Chronicles | 1.1.2 |  |
-| Xenoblade Chronicles 2 | 2.1.0 |  |
-| Xenoblade Chronicles 3 | 2.2.1 |  |
-| Xenoblade Chronicles X | 2.0.0 |  |
-| Yo-Kai Watch 4++ | 2.2.0 |  |
+Upstream notes that Claude was used to generate the host tester and add Aarch32 support to its asmjit fork.
 
 </details>
-
-# Other
-Claude was used to generate host tester and add support for Aarch32 in my fork of asmjit.
