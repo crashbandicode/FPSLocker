@@ -186,7 +186,10 @@ namespace PTBR {
 		"Forçar língua Inglesa",
 		"Sincronização de Tela em Dock",
 		"Apenas no modo portátil",
-		"60 Hz no menu HOME"
+		"60 Hz no menu HOME",
+		"Não foi possível salvar a tela.",
+		"Não foi possível aplicar a taxa.",
+		"A tela mudou. Taxa não salva."
 	};
 
 	const std::array teslaStrings = {

@@ -187,7 +187,10 @@ namespace GER {
 		"Erzwinge Englische Sprache",
 		"Dock-Displaysynchronisierung",
 		"Nur Handheld",
-		"60 Hz im Homemenü"
+		"60 Hz im Homemenü",
+		"Anzeigeeinstellungen nicht gespeichert.",
+		"Wiederholungsrate nicht angewendet.",
+		"Display geändert. Rate nicht gespeichert."
 	};
 
 	const std::array teslaStrings = {

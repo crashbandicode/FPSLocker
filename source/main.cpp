@@ -281,7 +281,7 @@ public:
 		auto *clickableListItem3 = new tsl::elm::ListItem2(getStringID(Lang::Id_DisplaySettings), "\uE151");
 		clickableListItem3->setClickListener([](u64 keys) { 
 			if (keys & HidNpadButton_A) {
-				tsl::changeTo<WarningDisplayGui>();
+				OpenDisplaySettingsMenu();
 				return true;
 			}
 			return false;
@@ -719,7 +719,7 @@ public:
 			auto *clickableListItem6 = new tsl::elm::ListItem2(getStringID(Lang::Id_DisplaySettings), "\uE151");
 			clickableListItem6->setClickListener([](u64 keys) { 
 				if (keys & HidNpadButton_A) {
-					tsl::changeTo<WarningDisplayGui>();
+					OpenDisplaySettingsMenu();
 					return true;
 				}
 				return false;

@@ -765,10 +765,84 @@ public:
 	}
 };
 
+inline const char* ManualRateFeedback(fpslocker::RateCommitFailure failure) {
+	switch (failure) {
+		case fpslocker::RateCommitFailure::IdentityMismatch:
+			return getStringID(Lang::Id_DisplayChangedRateNotSaved);
+		case fpslocker::RateCommitFailure::SaveFailed:
+			return getStringID(Lang::Id_CouldntSaveDisplaySettings);
+		case fpslocker::RateCommitFailure::None:
+			return nullptr;
+		case fpslocker::RateCommitFailure::Disallowed:
+		case fpslocker::RateCommitFailure::IpcSetFailed:
+		case fpslocker::RateCommitFailure::ReadbackMismatch:
+			return getStringID(Lang::Id_CouldntApplyRefreshRate);
+	}
+	return getStringID(Lang::Id_CouldntApplyRefreshRate);
+}
+
+inline fpslocker::DisplayContext ReadDisplayContext();
+
+inline fpslocker::DisplayIdentity ReadManualDisplayIdentity() {
+	fpslocker::DisplayIdentity identity;
+	s32 width = 0;
+	s32 height = 0;
+	uint32_t crc = 0;
+	if (ReadDisplayContext() == fpslocker::DisplayContext::Docked &&
+		R_SUCCEEDED(ommGetDefaultDisplayResolution(&width, &height)) &&
+		((width == 1920 && height == 1080) || (width == 1280 && height == 720)) && ReadDockedEdidCrc(&crc)) {
+		identity.available = true;
+		identity.height = height;
+		identity.edidCrc = crc;
+	}
+	return identity;
+}
+
+inline fpslocker::DisplayContext ReadDisplayContext() {
+	if (isLite) return fpslocker::DisplayContext::Handheld;
+	auto context = fpslocker::DisplayContext::Unknown;
+	if (R_FAILED(smInitialize())) return context;
+	if (R_SUCCEEDED(apmInitialize())) {
+		ApmPerformanceMode mode = ApmPerformanceMode_Invalid;
+		if (R_SUCCEEDED(apmGetPerformanceMode(&mode))) {
+			if (mode == ApmPerformanceMode_Boost) context = fpslocker::DisplayContext::Docked;
+			else if (mode == ApmPerformanceMode_Normal) context = fpslocker::DisplayContext::Handheld;
+		}
+		apmExit();
+	}
+	smExit();
+	return context;
+}
+
+inline bool SaveCurrentDisclaimer() {
+	fpslocker::PosixFileOps ops;
+	const auto context = ReadDisplayContext();
+	if (context == fpslocker::DisplayContext::Unknown) return false;
+	if (context == fpslocker::DisplayContext::Docked) {
+		uint32_t crc = 0;
+		if (!ReadDockedEdidCrc(&crc)) return false;
+		return fpslocker::SaveDisplayAcknowledgement(ops, fpslocker::DockedDisplayIniPath(crc)) == fpslocker::ConfigSaveStatus::Saved;
+	}
+	return fpslocker::SaveDisplayAcknowledgement(ops, fpslocker::kHandheldDisplayIniPath) == fpslocker::ConfigSaveStatus::Saved;
+}
+
+inline bool CurrentDisplayWarningIsAcknowledged() {
+	fpslocker::PosixFileOps ops;
+	const auto context = ReadDisplayContext();
+	if (context == fpslocker::DisplayContext::Unknown) return false;
+	if (context == fpslocker::DisplayContext::Docked) {
+		uint32_t crc = 0;
+		if (!ReadDockedEdidCrc(&crc)) return false;
+		return fpslocker::WarningAlreadyAccepted(ops, fpslocker::DisplayContext::Docked, true, fpslocker::DockedDisplayIniPath(crc), fpslocker::kHandheldDisplayIniPath);
+	}
+	return fpslocker::WarningAlreadyAccepted(ops, fpslocker::DisplayContext::Handheld, false, std::string(), fpslocker::kHandheldDisplayIniPath);
+}
+
 class DockedRefreshRateChangeGui : public tsl::Gui {
 public:
 	DockedModeRefreshRateAllowed rr;
 	DockedAdditionalSettings as;
+	const char* feedback = nullptr;
 	uint8_t maxRefreshRate = 60;
 	DockedRefreshRateChangeGui (uint8_t maxRefreshRate_impl) {
 		if (maxRefreshRate_impl >= 70) maxRefreshRate = maxRefreshRate_impl;
@@ -788,6 +862,12 @@ public:
 		// A list that can contain sub elements and handles scrolling
 		auto list = new tsl::elm::List();
 
+		list->addItem(new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+			if (feedback != nullptr && feedback[0] != '\0') {
+				renderer->drawString(feedback, false, x, y + 20, 20, renderer->a(0xF33F));
+			}
+		}), 30);
+
 		for (size_t i = 0; i < sizeof(rr); i++) {
 			if (maxRefreshRate < DockedModeRefreshRateAllowedValues[i])
 				break;
@@ -798,15 +878,35 @@ public:
 			auto *clickableListItem = new tsl::elm::MiniListItem(Hz);
 			clickableListItem->setClickListener([this, i](u64 keys) { 
 				if (keys & HidNpadButton_A) {
-					if (!oldSalty) {
-						if (R_SUCCEEDED(SaltySD_Connect())) {
-							SaltySD_SetDisplayRefreshRate(DockedModeRefreshRateAllowedValues[i]);
-							SaltySD_Term();
-							refreshRate_g = DockedModeRefreshRateAllowedValues[i];
-							if (Shared) Shared->displaySync.ds.docked = refreshRate_g != 0;
-						}
+					if (oldSalty) {
+						tsl::goBack();
+						return true;
 					}
-					tsl::goBack();
+					const uint8_t requested = DockedModeRefreshRateAllowedValues[i];
+					const fpslocker::DisplayIdentity before = ReadManualDisplayIdentity();
+					if (R_FAILED(SaltySD_Connect())) {
+						feedback = getStringID(Lang::Id_CouldntApplyRefreshRate);
+						return true;
+					}
+					// Manual selection must not change global Display Sync flags.
+					const fpslocker::RateCommitResult committed = fpslocker::CommitManualDockedRefreshRate(
+						requested,
+						rr[i],
+						before,
+						[](uint8_t rate) { return R_SUCCEEDED(SaltySD_SetDisplayRefreshRate(rate)); },
+						[](uint8_t* actual) { return actual != nullptr && R_SUCCEEDED(SaltySD_GetDisplayRefreshRate(actual)); },
+						[]() { return ReadManualDisplayIdentity(); },
+						[](uint8_t rate, bool is720p, uint32_t crc) {
+							fpslocker::PosixFileOps ops;
+							return fpslocker::SavePreferredRefreshRate(ops, fpslocker::DockedDisplayIniPath(crc), is720p, rate) == fpslocker::ConfigSaveStatus::Saved;
+						});
+					SaltySD_Term();
+					if (committed.showRequestedRate) refreshRate_g = requested;
+					if (committed.saved) {
+						tsl::goBack();
+						return true;
+					}
+					feedback = ManualRateFeedback(committed.failure);
 					return true;
 				}
 				return false;
@@ -1102,6 +1202,7 @@ class WarningDisplayGui : public tsl::Gui {
 private:
 	uint8_t refreshRate = 0;
 	std::string Warning = getStringID(Lang::Id_ThisIsExperimentalFunction);
+	const char* feedback = nullptr;
 public:
     WarningDisplayGui() {}
 
@@ -1114,14 +1215,18 @@ public:
 
 		auto how_many_lines = 1 + std::ranges::count(Warning, '\n');
 
-		list->addItem(new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+		list->addItem(new tsl::elm::CustomDrawer([this, how_many_lines](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
 			renderer->drawString(Warning.c_str(), false, x, y+20, 20, renderer->a(0xFFFF));
-		}), 10 + (how_many_lines * 20));
+			if (feedback != nullptr && feedback[0] != '\0') {
+				renderer->drawString(feedback, false, x, y + 20 + static_cast<s32>(how_many_lines * 20), 20, renderer->a(0xF33F));
+			}
+		}), 10 + ((how_many_lines + 1) * 20));
 
 		auto *clickableListItem1 = new tsl::elm::ListItem2(getStringID(Lang::Id_Decline));
-		clickableListItem1->setClickListener([this](u64 keys) { 
+		clickableListItem1->setClickListener([](u64 keys) {
 			if (keys & HidNpadButton_A) {
-				tsl::goBack();
+				const fpslocker::WarningResult outcome = fpslocker::ApplyWarningAction(fpslocker::WarningAction::Decline, [] { return SaveCurrentDisclaimer(); });
+				if (outcome == fpslocker::WarningResult::Dismissed) tsl::goBack();
 				return true;
 			}
 			return false;
@@ -1132,8 +1237,13 @@ public:
 		auto *clickableListItem2 = new tsl::elm::ListItem2(getStringID(Lang::Id_Accept));
 		clickableListItem2->setClickListener([this](u64 keys) { 
 			if ((keys & HidNpadButton_A)) {
-				tsl::goBack();
-				tsl::changeTo<DisplayGui>();
+				const fpslocker::WarningResult outcome = fpslocker::ApplyWarningAction(fpslocker::WarningAction::Accept, [] { return SaveCurrentDisclaimer(); });
+				if (outcome == fpslocker::WarningResult::Saved) {
+					tsl::goBack();
+					tsl::changeTo<DisplayGui>();
+					return true;
+				}
+				feedback = getStringID(Lang::Id_CouldntSaveDisplaySettings);
 				return true;
 			}
 			return false;
@@ -1146,4 +1256,18 @@ public:
         return frame;
     }
 
+	virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
+		if (keysDown & HidNpadButton_B) {
+			const fpslocker::WarningResult outcome = fpslocker::ApplyWarningAction(fpslocker::WarningAction::Back, [] { return SaveCurrentDisclaimer(); });
+			if (outcome == fpslocker::WarningResult::Dismissed) tsl::goBack();
+			return true;
+		}
+		return false;
+	}
+
 };
+
+inline void OpenDisplaySettingsMenu() {
+	if (CurrentDisplayWarningIsAcknowledged()) tsl::changeTo<DisplayGui>();
+	else tsl::changeTo<WarningDisplayGui>();
+}

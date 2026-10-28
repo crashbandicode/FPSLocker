@@ -2,6 +2,7 @@
 #include <curl/curl.h>
 #include <stdatomic.h>
 #include <zlib.h>
+#include "DisplayConfig.hpp"
 
 const unsigned char data[] = {
 	#embed "titleids_with_patches.bin"
@@ -292,25 +293,20 @@ void LoadDockedModeAllowedSave(DockedModeRefreshRateAllowed &rr, DockedAdditiona
 	if (displayCRC) *displayCRC = crc32;
     snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32);
     if (file_exists(path) == true) {
-		FILE* file = fopen(path, "r");
-		fseek(file, 0, 2);
-		size_t size = ftell(file);
-		fseek(file, 0, 0);
-		std::string string_data(size, 0);
-		fread(string_data.data(), size, 1, file);
-		fclose(file);
-		if (size == 0) return;
+		fpslocker::PosixFileOps ops;
+		std::string string_data;
+		if (ops.ReadFile(path, string_data) != fpslocker::ReadResult::Ok || string_data.empty()) return;
 		tsl::hlp::ini::IniData iniData = tsl::hlp::ini::parseIni(string_data);
 		if (iniData.contains("Common") == false) {
 			return;
 		}
-		if (iniData["Common"].contains("tvName") == true) {
-			TV_name = iniData["Common"]["tvName"];
-		}
+		const auto tvName = fpslocker::FindCommonValue(fpslocker::ParseIniLines(string_data), fpslocker::kTvNameKey);
+		if (tvName) TV_name = *tvName;
 		if (!is720p) {
 			if (iniData["Common"].contains("refreshRateAllowed") == false) {
 				return;
 			}
+			if (iniData["Common"]["refreshRateAllowed"].size() < 2) return;
 			if (iniData["Common"]["refreshRateAllowed"].begin()[0] != '{')
 				return;
 			if ((iniData["Common"]["refreshRateAllowed"].end()-1)[0] != '}')
@@ -333,6 +329,7 @@ void LoadDockedModeAllowedSave(DockedModeRefreshRateAllowed &rr, DockedAdditiona
 			if (iniData["Common"].contains("refreshRateAllowed720p") == false) {
 				return;
 			}
+			if (iniData["Common"]["refreshRateAllowed720p"].size() < 2) return;
 			if (iniData["Common"]["refreshRateAllowed720p"].begin()[0] != '{')
 				return;
 			if ((iniData["Common"]["refreshRateAllowed720p"].end()-1)[0] != '}')
@@ -364,77 +361,57 @@ void LoadDockedModeAllowedSave(DockedModeRefreshRateAllowed &rr, DockedAdditiona
     return;
 }
 
+static bool DockedRefreshTableMatches() {
+	if (sizeof(DockedModeRefreshRateAllowedValues) != sizeof(fpslocker::kDockedRefreshRates)) return false;
+	for (size_t i = 0; i < sizeof(fpslocker::kDockedRefreshRates); i++) {
+		if (DockedModeRefreshRateAllowedValues[i] != fpslocker::kDockedRefreshRates[i]) return false;
+	}
+	return true;
+}
+
+bool ReadDockedEdidCrc(uint32_t* crc) {
+	if (!crc) return false;
+	bool ok = false;
+	tsl::hlp::doWithSmSession([&]{
+		if (R_FAILED(setsysInitialize())) return;
+		SetSysEdid edid = {0};
+		constexpr uint8_t pattern[] = {0, 255, 255, 255, 255, 255, 255, 0};
+		if (R_SUCCEEDED(setsysGetEdid(&edid)) && std::equal(std::begin(pattern), std::end(pattern), edid.pattern)) {
+			*crc = crc32Calculate(&edid, sizeof(edid));
+			ok = true;
+		}
+		setsysExit();
+	});
+	return ok;
+}
+
 void SaveDockedModeAllowedSave(DockedModeRefreshRateAllowed rr, DockedAdditionalSettings &as, bool is720p) {
+	if (!DockedRefreshTableMatches()) return;
 	tsl::hlp::doWithSmSession([]{
 		setsysInitialize();
 	});
-    SetSysEdid edid = {0};
-    if (R_FAILED(setsysGetEdid(&edid))) {
+	SetSysEdid edid = {0};
+	if (R_FAILED(setsysGetEdid(&edid))) {
 		return;
-    }
-    char path[128] = "";
-	DockedModeRefreshRateAllowed rr_impl = {0};
-	DockedAdditionalSettings as_impl = {0};
-	LoadDockedModeAllowedSave(rr_impl, as_impl, nullptr, !is720p);
-    snprintf(path, sizeof(path), "sdmc:/SaltySD/plugins/FPSLocker/ExtDisplays/%08X.ini", crc32Calculate(&edid, sizeof(edid)));
-    FILE* file = fopen(path, "w");
-    if (file) {
-		std::string allowedRR = "{";
-		std::string allowedRR720p = "{";
-		if (!is720p) {
-			for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
-				if (rr[i]) {
-					allowedRR += std::to_string(DockedModeRefreshRateAllowedValues[i]);
-					allowedRR += ",";
-				}
-				if (rr_impl[i]) {
-					allowedRR720p += std::to_string(DockedModeRefreshRateAllowedValues[i]);
-					allowedRR720p += ",";
-				}
-			}		
-		}
-		else {
-			for (size_t i = 0; i < sizeof(DockedModeRefreshRateAllowed); i++) {
-				if (rr[i]) {
-					allowedRR720p += std::to_string(DockedModeRefreshRateAllowedValues[i]);
-					allowedRR720p += ",";
-				}
-				if (rr_impl[i]) {
-					allowedRR += std::to_string(DockedModeRefreshRateAllowedValues[i]);
-					allowedRR += ",";
-				}
-			}
-		}
-		allowedRR.erase(allowedRR.end()-1);
-		allowedRR += "}";
-		allowedRR720p.erase(allowedRR720p.end()-1);
-		allowedRR720p += "}";
-		fwrite("[Common]\n", strlen("[Common]\n"), 1, file);
-		fwrite("tvName=", strlen("tvName="), 1, file);
-		fwrite(TV_name.c_str(), TV_name.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-		fwrite("refreshRateAllowed=", strlen("refreshRateAllowed="), 1, file);
-		fwrite(allowedRR.c_str(), allowedRR.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-		std::string df60 = (as.dontForce60InDocked ? "False" : "True");
-		std::string fpst = (as.fpsTargetWithoutRRMatchLowest ? "True" : "False");
-		std::string dsdo = (as.displaySyncDockedOutOfFocus60 ? "True" : "False");
-		fwrite("allowPatchesToForce60InDocked=", strlen("allowPatchesToForce60InDocked="), 1, file);
-		fwrite(df60.c_str(), df60.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-		fwrite("matchLowestRefreshRate=", strlen("matchLowestRefreshRate="), 1, file);
-		fwrite(fpst.c_str(), fpst.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-		fwrite("bringDefaultRefreshRateWhenOutOfFocus=", strlen("bringDefaultRefreshRateWhenOutOfFocus="), 1, file);
-		fwrite(dsdo.c_str(), dsdo.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-		fwrite("refreshRateAllowed720p=", 23, 1, file);
-		fwrite(allowedRR720p.c_str(), allowedRR720p.length(), 1, file);
-		fwrite("\n", 1, 1, file);
-        fclose(file);
-
-    }
-    return;
+	}
+	std::string tvName = TV_name;
+	for (char& ch : tvName) {
+		if (ch == '\n' || ch == '\r') ch = ' ';
+	}
+	fpslocker::DockedPolicy policy;
+	policy.dontForce60InDocked = as.dontForce60InDocked;
+	policy.fpsTargetWithoutRRMatchLowest = as.fpsTargetWithoutRRMatchLowest;
+	policy.displaySyncDockedOutOfFocus60 = as.displaySyncDockedOutOfFocus60;
+	fpslocker::PosixFileOps ops;
+	const uint32_t crc = crc32Calculate(&edid, sizeof(edid));
+	fpslocker::SaveDockedAllowlistAndPolicy(
+		ops,
+		fpslocker::DockedDisplayIniPath(crc),
+		tvName,
+		is720p,
+		std::span<const uint8_t>(DockedModeRefreshRateAllowedValues, sizeof(DockedModeRefreshRateAllowedValues)),
+		std::span<const bool>(rr, sizeof(DockedModeRefreshRateAllowed)),
+		policy);
 }
 
 char expected_display_version[0x10] = "";
